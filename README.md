@@ -8,7 +8,7 @@
 ## 🚀 Live Prototype & Links
 ---
 
-- **Clickable Prototype URL:** *(Deploy `prototype/` to Netlify or GitHub Pages — see below)*
+- **Clickable Prototype URL:** stunning-cactus-c00960.netlify.app
 - **Demo / Walkthrough Video:** *(Paste your Loom / YouTube unlisted video link here)*
 - **Hackathon Track:** On-Device AI & User Privacy / Productivity
 

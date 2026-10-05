@@ -55,24 +55,6 @@ The Phase 1 prototype is an interactive, standalone web app built to look and be
 
 ---
 
-
-## 🌐 Deploying to a Public Submission Link
-
-For the hackathon submission form, host the prototype for free in under 2 minutes:
-
-### Option 1: Netlify Drop (Easiest — 2 Minutes)
-1. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
-2. Drag and drop the `prototype` folder onto the page.
-3. Copy your generated `.netlify.app` URL for the submission form.
-
-### Option 2: GitHub Pages (5 Minutes)
-1. Push this repository to GitHub.
-2. Go to **Settings** &rarr; **Pages**.
-3. Under **Source**, select `Deploy from a branch` &rarr; Branch: `main` &rarr; Folder: `/prototype` (or deploy from root if moved).
-4. Save and copy the live `github.io` URL.
-
----
-
 ## 🛠️ Architecture & Roadmap (Phase 2 Full Build)
 
 | Layer | Technology |

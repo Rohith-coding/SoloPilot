@@ -9,7 +9,7 @@
 ---
 
 - **Clickable Prototype URL:** stunning-cactus-c00960.netlify.app
-- **Demo / Walkthrough Video:** *(Paste your Loom / YouTube unlisted video link here)*
+- **Demo / Walkthrough Video:** https://youtube.com/shorts/tbnqJS-LSPU?feature=share
 - **Hackathon Track:** Productivity
 
 ---

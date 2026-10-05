@@ -1,61 +1,105 @@
-# SoloPilot — Clickable Prototype
+# SoloPilot — Private On-Device AI Back-Office for Freelancers
 
-> Private, on-device AI back-office for freelancers in India.
-
-## What's Inside
-
-- `index.html` — Single self-contained file. No dependencies. Works offline.
-
-## How to Test Locally
-
-1. Open the `prototype` folder on your computer.
-2. Double-click `index.html`. It opens in your default browser.
-3. That's it — no server needed.
-
-## How to Get a Public URL
-
-You need a public URL for the hackathon submission. Here are two free options:
+> **iQOO Hackathon 2026 Submission — Phase 1 (Screening)**  
+> Private, on-device AI assistant that handles receipts, invoice tracking, reminders, and payment tracking for Indian freelancers — without sending personal financial data to the cloud.
 
 ---
 
-### Option A: Netlify Drop (Easiest — 2 minutes)
+## 🚀 Live Prototype & Links
+---
 
-1. Open [app.netlify.com/drop](https://app.netlify.com/drop) in your browser.
-2. **Drag the entire `prototype` folder** onto the page.
-3. Wait for the upload to finish (a few seconds).
-4. Netlify gives you a URL like `https://random-name-12345.netlify.app`.
-5. Click the link to verify it works.
-6. *(Optional)* Click **Site settings → Change site name** to get a nicer URL like `https://solopilot.netlify.app`.
-7. **Copy the URL** — that's your submission link.
-
-### Option B: GitHub Pages (5 minutes)
-
-1. Go to [github.com](https://github.com) and sign in (or create an account).
-2. Click the **+** in the top-right → **New repository**.
-3. Name it `solopilot-prototype`. Keep it **Public**. Click **Create repository**.
-4. On the next page, click **"uploading an existing file"**.
-5. Drag the `index.html` file into the upload area. Click **Commit changes**.
-6. Go to **Settings** → **Pages** (left sidebar).
-7. Under **Source**, select **Deploy from a branch**.
-8. Branch: **main**, folder: **/ (root)**. Click **Save**.
-9. Wait 1–2 minutes. Refresh the page. A URL appears at the top:
-   `https://YOUR-USERNAME.github.io/solopilot-prototype/`
-10. **Copy the URL** — that's your submission link.
+- **Clickable Prototype URL:** *(Deploy `prototype/` to Netlify or GitHub Pages — see below)*
+- **Demo / Walkthrough Video:** *(Paste your Loom / YouTube unlisted video link here)*
+- **Hackathon Track:** On-Device AI & User Privacy / Productivity
 
 ---
 
-### Verify It's Public
+## 📌 Problem & Concept
 
-Open the URL in an **incognito/private window** (Ctrl+Shift+N in Chrome). If the app loads, you're good. If not, wait a minute and try again — GitHub Pages can take up to 2 minutes to go live.
+Freelancers and solo professionals in India (designers, tutors, photographers, consultants) struggle with:
+1. **Receipt & Expense Chaos:** Messy paper receipts, screenshots, and invoices scattered across WhatsApp and email.
+2. **Delayed Invoices & Forgotten Follow-ups:** Chasing clients for payments is uncomfortable and time-consuming.
+3. **Privacy Concerns:** Uploading client names, bank details, and personal financial invoices to third-party cloud servers raises serious trust issues.
 
-## Keyboard Shortcuts
+### The SoloPilot Solution
+SoloPilot brings **complete on-device AI intelligence** directly onto the smartphone (leveraging hardware NPU / on-device LLMs & OCR):
+- **On-Device Receipt Scanning:** Instant OCR extracts vendor, items, GST, and totals without network requests.
+- **Automated Ledger & GST Calculation:** Categorizes expenses and tracks pending vs. collected revenue.
+- **Context-Aware Polite Reminders:** On-device AI drafts WhatsApp reminders tailored to relationship tone (gentle, firm, or formal).
+- **100% Zero-Cloud Privacy:** Financial data stays locked in local storage (`isar` / SQLite + encrypted vault).
 
-| Key | Action |
-|-----|--------|
-| `R` | Reset demo to initial state |
+---
 
-## Notes
+## 📱 Prototype Overview (Phase 1)
 
-- This is a **clickable prototype**, not the final app. Scan, AI, and voice features are simulated.
-- The final app will be built with Flutter + ML Kit + on-device AI.
-- All data lives in memory and resets on page reload.
+The Phase 1 prototype is an interactive, standalone web app built to look and behave identically to an on-device mobile app.
+
+### Key Screens & Interactive Flows:
+1. **Home / Dashboard:**
+   - Quick overview of Monthly Revenue, Pending vs. Paid amounts.
+   - Quick action: "Scan Receipt" and "Draft Invoice".
+   - Recent transaction feed with visual status badges.
+2. **Camera / Scan Screen:**
+   - Simulated on-device scanner viewfinder with receipt outline overlay.
+   - Live simulated OCR recognition box.
+3. **Receipt Review & Parse:**
+   - Real-time extraction view showing detected vendor, date, GSTIN, amount breakdown.
+   - "Verify & Save to Ledger" flow.
+4. **Invoice Management:**
+   - Filter invoices by Status: All, Paid, Pending, Overdue.
+   - Detailed invoice inspection (Client, line items, bank details).
+5. **AI Reminder Generator:**
+   - Tone selector: Gentle, Friendly, Firm.
+   - AI generated WhatsApp draft ready to copy or send.
+   - "Mark as Paid" action that updates ledger balance in real time.
+
+---
+
+
+## 🌐 Deploying to a Public Submission Link
+
+For the hackathon submission form, host the prototype for free in under 2 minutes:
+
+### Option 1: Netlify Drop (Easiest — 2 Minutes)
+1. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
+2. Drag and drop the `prototype` folder onto the page.
+3. Copy your generated `.netlify.app` URL for the submission form.
+
+### Option 2: GitHub Pages (5 Minutes)
+1. Push this repository to GitHub.
+2. Go to **Settings** &rarr; **Pages**.
+3. Under **Source**, select `Deploy from a branch` &rarr; Branch: `main` &rarr; Folder: `/prototype` (or deploy from root if moved).
+4. Save and copy the live `github.io` URL.
+
+---
+
+## 🛠️ Architecture & Roadmap (Phase 2 Full Build)
+
+| Layer | Technology |
+|---|---|
+| **Mobile Framework** | Flutter (Dart) — Cross-platform Android / iOS |
+| **On-Device OCR** | Google ML Kit Text Recognition (On-device) |
+| **Local Inference / AI** | MediaPipe GenAI / On-Device Gemma LLM quantized for mobile NPU |
+| **Database** | Isar Database / SQLite with SQLCipher encryption |
+| **Export & Sharing** | PDF generation + native WhatsApp / Share Intent |
+
+---
+
+## 📂 Project Structure
+
+```text
+solopilot/
+├── README.md                  # Project overview, problem statement & submission guide
+├── analysis_options.yaml      # Flutter lint configurations
+├── pubspec.yaml               # Flutter package configuration (Phase 2 app)
+├── lib/                       # Flutter production app source code (Phase 2)
+│   └── main.dart
+├── test/                      # Unit and integration tests
+└── prototype/                 # Interactive Phase 1 Hackathon Deliverables
+    ├── index.html             # Standalone interactive phone-frame prototype
+    ├── README.md              # Prototype deployment instructions
+    ├── DEMO_SCRIPT.md         # 2-3 minute video walkthrough narration script
+    └── FIGMA_SPEC.md          # Comprehensive design tokens, screen specs & UI guidelines
+```
+
+---

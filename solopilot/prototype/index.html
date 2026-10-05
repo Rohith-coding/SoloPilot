@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SoloPilot — Private AI Back-Office for Freelancers</title>
+<meta name="description" content="SoloPilot: On-device AI invoice manager for Indian freelancers. Scan receipts, track payments, draft reminders — everything stays on your phone.">
+<style>
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#0D9488;--primary-dark:#0F766E;--primary-light:#CCFBF1;
+  --accent:#4F46E5;--accent-light:#E0E7FF;
+  --bg:#F8FAFC;--surface:#FFFFFF;--surface-dim:#F1F5F9;
+  --text:#0F172A;--text-secondary:#64748B;--text-muted:#94A3B8;
+  --border:#E2E8F0;
+  --pending-bg:#F1F5F9;--pending-text:#475569;--pending-icon:⏳;
+  --paid-bg:#DCFCE7;--paid-text:#166534;--paid-icon:✓;
+  --overdue-bg:#FEE2E2;--overdue-text:#991B1B;--overdue-icon:⚠;
+  --danger:#DC2626;--success:#16A34A;
+  --radius:16px;--radius-sm:10px;--radius-xs:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.1);
+  --transition:220ms cubic-bezier(.4,0,.2,1);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+html,body{height:100%;font-family:var(--font);background:#1E293B;color:var(--text);-webkit-tap-highlight-color:transparent;overflow:hidden}
+
+/* ===== PHONE FRAME (desktop) ===== */
+.phone-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px}
+.phone-frame{
+  width:390px;height:844px;border-radius:44px;overflow:hidden;position:relative;
+  background:var(--bg);box-shadow:0 0 0 12px #0F172A,0 0 0 14px #334155,0 20px 60px rgba(0,0,0,.4);
+}
+.phone-frame-footer{color:#94A3B8;font-size:11px;text-align:center;max-width:390px;line-height:1.5}
+.phone-frame-footer a{color:#94A3B8;text-decoration:underline;cursor:pointer}
+.phone-frame-footer a:hover{color:#CBD5E1}
+
+/* Mobile: no frame */
+@media(max-width:430px){
+  body{background:var(--bg)}
+  .phone-wrapper{gap:0;justify-content:flex-start}
+  .phone-frame{width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
+  .phone-frame-footer{display:none}
+}
+
+/* ===== STATUS BAR ===== */
+.status-bar{
+  height:44px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:var(--surface);z-index:100;position:relative;
+}
+.status-bar .time{font-size:14px;font-weight:600;letter-spacing:.5px}
+.status-bar .icons{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)}
+.status-bar .icons svg{width:16px;height:16px;fill:var(--text-secondary)}
+
+/* ===== NOTIFICATION BANNER ===== */
+.notification-banner{
+  position:absolute;top:-80px;left:12px;right:12px;z-index:200;
+  background:var(--surface);border-radius:var(--radius);padding:14px 16px;
+  box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:top .4s cubic-bezier(.4,0,.2,1);
+}
+.notification-banner.show{top:50px}
+.notification-banner .notif-icon{
+  width:36px;height:36px;border-radius:10px;background:var(--primary);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.notification-banner .notif-icon svg{width:20px;height:20px;fill:#fff}
+.notification-banner .notif-text{flex:1}
+.notification-banner .notif-app{font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.notification-banner .notif-msg{font-size:13px;color:var(--text);margin-top:2px}
+
+/* ===== SCREEN CONTAINER ===== */
+.screen-container{
+  position:relative;width:100%;height:calc(100% - 44px - 64px);overflow:hidden;
+}
+.screen{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  overflow-y:auto;overflow-x:hidden;background:var(--bg);
+  transition:transform var(--transition),opacity var(--transition);
+  will-change:transform,opacity;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:20px;
+}
+.screen.hidden{display:none}
+.screen.slide-out-left{transform:translateX(-30%);opacity:0;pointer-events:none}
+.screen.slide-in-right{transform:translateX(100%);opacity:0}
+.screen.slide-out-right{transform:translateX(30%);opacity:0;pointer-events:none}
+.screen.slide-in-left{transform:translateX(-100%);opacity:0}
+.screen.active{transform:translateX(0);opacity:1}
+
+/* ===== TOP BAR ===== */
+.top-bar{
+  display:flex;align-items:center;padding:8px 16px 12px;gap:12px;
+  background:var(--surface);position:sticky;top:0;z-index:50;
+}
+.top-bar h1{font-size:20px;font-weight:700;flex:1}
+.back-btn{
+  width:40px;height:40px;border-radius:50%;border:none;background:transparent;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background var(--transition);
+}
+.back-btn:hover{background:var(--surface-dim)}
+.back-btn svg{width:24px;height:24px;fill:var(--text)}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{
+  height:64px;display:flex;align-items:center;justify-content:space-around;
+  background:var(--surface);border-top:1px solid var(--border);
+  position:relative;z-index:50;flex-shrink:0;
+}
+.nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 16px;border-radius:var(--radius-sm);cursor:pointer;
+  border:none;background:none;color:var(--text-muted);transition:color var(--transition);
+  min-width:64px;
+}
+.nav-item.active{color:var(--primary)}
+.nav-item svg{width:24px;height:24px;fill:currentColor}
+.nav-item span{font-size:11px;font-weight:500}
+
+/* ===== COMPONENTS ===== */
+.badge-offline{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+  background:var(--primary-light);color:var(--primary-dark);
+  border-radius:20px;font-size:12px;font-weight:600;
+}
+.badge-offline svg{width:14px;height:14px;fill:var(--primary-dark)}
+
+.card{
+  background:var(--surface);border-radius:var(--radius);padding:16px;
+  box-shadow:var(--shadow);margin:0 16px 12px;
+}
+.card-summary{cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .15s}
+.card-summary:active{transform:scale(.97)}
+.card-summary .card-icon{
+  width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.card-summary .card-label{font-size:13px;color:var(--text-secondary)}
+.card-summary .card-value{font-size:22px;font-weight:700}
+
+.status-chip{
+  display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
+  border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px;
+  white-space:nowrap;
+}
+.status-chip.pending{background:var(--pending-bg);color:var(--pending-text)}
+.status-chip.paid{background:var(--paid-bg);color:var(--paid-text)}
+.status-chip.overdue{background:var(--overdue-bg);color:var(--overdue-text)}
+.status-chip .chip-icon{font-size:12px}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 24px;border-radius:var(--radius);font-size:15px;font-weight:600;
+  border:none;cursor:pointer;transition:all var(--transition);
+  min-height:48px;min-width:48px;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:var(--surface-dim);color:var(--text)}
+.btn-secondary:hover{background:var(--border)}
+.btn-outline{background:transparent;color:var(--primary);border:2px solid var(--primary)}
+.btn-outline:hover{background:var(--primary-light)}
+.btn-danger{background:var(--overdue-bg);color:var(--overdue-text)}
+.btn-success{background:var(--paid-bg);color:var(--paid-text)}
+.btn-full{width:calc(100% - 32px);margin:0 16px}
+.btn svg{width:20px;height:20px;fill:currentColor}
+
+.btn-row{display:flex;gap:10px;padding:0 16px;flex-wrap:wrap}
+.btn-row .btn{flex:1}
+
+.input-group{margin:0 16px 14px}
+.input-group label{display:block;font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+.input-group input,.input-group textarea,.input-group select{
+  width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:var(--radius-xs);
+  font-size:15px;font-family:var(--font);background:var(--surface);color:var(--text);
+  transition:border-color var(--transition);resize:none;
+}
+.input-group input:focus,.input-group textarea:focus{outline:none;border-color:var(--primary)}
+.input-group .input-error{font-size:12px;color:var(--danger);margin-top:4px;display:none}
+
+.section-title{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;padding:16px 16px 8px}
+
+.invoice-item{
+  display:flex;align-items:center;padding:14px 16px;gap:12px;cursor:pointer;
+  border-bottom:1px solid var(--border);transition:background var(--transition);
+}
+.invoice-item:hover{background:var(--surface-dim)}
+.invoice-item:active{background:var(--border)}
+.invoice-item .inv-avatar{
+  width:42px;height:42px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.invoice-item .inv-info{flex:1;min-width:0}
+.invoice-item .inv-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.invoice-item .inv-date{font-size:12px;color:var(--text-muted);margin-top:2px}
+.invoice-item .inv-right{text-align:right;flex-shrink:0}
+.invoice-item .inv-amount{font-size:15px;font-weight:700}
+
+/* Filter chips */
+.filter-bar{display:flex;gap:8px;padding:8px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.filter-chip{
+  padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;
+  border:2px solid var(--border);background:var(--surface);color:var(--text-secondary);
+  cursor:pointer;white-space:nowrap;transition:all var(--transition);
+}
+.filter-chip.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 32px;color:var(--text-muted)}
+.empty-state svg{width:64px;height:64px;fill:var(--text-muted);margin-bottom:16px;opacity:.5}
+.empty-state p{font-size:15px;margin-top:8px}
+
+/* Modal */
+.modal-overlay{
+  position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:300;
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal-content{
+  background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;
+  width:100%;max-height:85%;overflow-y:auto;padding:20px;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.modal-overlay.show .modal-content{transform:translateY(0)}
+.modal-handle{width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px}
+
+/* Scan animations */
+.scan-area{
+  margin:16px;border-radius:var(--radius);overflow:hidden;position:relative;
+  background:#FAFAF9;border:2px dashed var(--border);min-height:240px;
+}
+.receipt-mock{padding:24px;font-family:var(--font)}
+.receipt-mock h3{font-size:16px;text-align:center;margin-bottom:12px;border-bottom:2px solid var(--text);padding-bottom:8px}
+.receipt-mock .receipt-line{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.receipt-mock .receipt-total{border-top:2px solid var(--text);margin-top:8px;padding-top:8px;font-weight:700;font-size:16px}
+.scan-line{
+  position:absolute;left:0;right:0;height:3px;background:var(--primary);
+  opacity:.8;top:0;animation:scanMove 1.5s ease-in-out infinite;
+  box-shadow:0 0 12px var(--primary);
+}
+@keyframes scanMove{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}
+.highlight-box{
+  position:absolute;border:2px solid var(--primary);background:rgba(13,148,136,.1);
+  border-radius:4px;opacity:0;transition:opacity .3s;
+}
+.highlight-box.show{opacity:1}
+.scan-status{
+  text-align:center;padding:12px;font-size:14px;font-weight:600;color:var(--primary);
+}
+
+/* Waveform */
+.waveform{display:flex;align-items:center;justify-content:center;gap:3px;height:60px;margin:20px 16px}
+.waveform .bar{width:4px;border-radius:2px;background:var(--primary);animation:wave 1s ease-in-out infinite}
+@keyframes wave{0%,100%{height:8px}50%{height:40px}}
+
+/* Typing animation */
+.typing-cursor{display:inline-block;width:2px;height:1em;background:var(--primary);animation:blink .6s infinite;vertical-align:text-bottom;margin-left:2px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Shimmer */
+.shimmer{
+  background:linear-gradient(90deg,var(--surface-dim) 25%,var(--border) 50%,var(--surface-dim) 75%);
+  background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius-xs);
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Pulse */
+.pulse-glow{animation:pulseGlow 2s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(13,148,136,.3)}50%{box-shadow:0 0 0 8px rgba(13,148,136,0)}}
+
+/* Snackbar */
+.snackbar{
+  position:absolute;bottom:80px;left:16px;right:16px;z-index:250;
+  background:var(--text);color:#fff;padding:14px 20px;border-radius:var(--radius-xs);
+  font-size:14px;font-weight:500;text-align:center;
+  transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none;
+}
+.snackbar.show{transform:translateY(0);opacity:1;pointer-events:auto}
+
+/* Collapsible */
+.collapsible-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;cursor:pointer;color:var(--text-secondary);font-size:13px;font-weight:600;
+}
+.collapsible-header svg{width:16px;height:16px;fill:var(--text-muted);transition:transform .2s}
+.collapsible-header.open svg{transform:rotate(180deg)}
+.collapsible-body{max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0 16px}
+.collapsible-body.open{max-height:200px}
+
+/* Invoice card detail */
+.invoice-card-detail{
+  margin:16px;border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow-lg);overflow:hidden;
+}
+.invoice-card-header{padding:20px;text-align:center;border-bottom:1px solid var(--border)}
+.invoice-card-header h2{font-size:28px;font-weight:800;margin:8px 0 4px}
+.invoice-card-body{padding:16px 20px}
+.invoice-card-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--surface-dim)}
+.invoice-card-row:last-child{border-bottom:none}
+.invoice-card-row .label{font-size:13px;color:var(--text-muted)}
+.invoice-card-row .value{font-size:14px;font-weight:600;text-align:right}
+
+/* PDF Modal */
+.pdf-preview{padding:24px;border:1px solid var(--border);border-radius:var(--radius-xs);margin:12px 0;background:#fff}
+.pdf-preview h2{text-align:center;font-size:18px;color:var(--primary);margin-bottom:16px}
+.pdf-preview .pdf-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-bottom:1px solid var(--surface-dim)}
+.pdf-preview .pdf-total{font-size:18px;font-weight:700;text-align:right;margin-top:12px}
+.pdf-preview .pdf-footer{text-align:center;margin-top:20px;font-size:11px;color:var(--text-muted)}
+
+/* Smart reply chips */
+.smart-replies{display:flex;gap:8px;padding:8px 16px;flex-wrap:wrap}
+.smart-reply-chip{
+  padding:8px 14px;border-radius:20px;font-size:13px;
+  border:1px solid var(--accent);color:var(--accent);background:var(--accent-light);
+  cursor:pointer;transition:all var(--transition);
+}
+.smart-reply-chip:hover{background:var(--accent);color:#fff}
+
+/* Guided tour */
+.tour-overlay{
+  position:absolute;inset:0;background:rgba(15,23,42,.7);z-index:400;
+  display:none;align-items:center;justify-content:center;
+}
+.tour-overlay.show{display:flex}
+.tour-card{
+  background:var(--surface);border-radius:var(--radius);padding:24px;
+  max-width:300px;text-align:center;box-shadow:var(--shadow-lg);
+}
+.tour-card h3{font-size:18px;margin-bottom:8px}
+.tour-card p{font-size:14px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5}
+.tour-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.tour-dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.tour-dot.active{background:var(--primary)}
+
+/* Date picker simple */
+.date-picker-simple{position:relative}
+
+/* Mic transcript */
+.mic-transcript{
+  margin:16px;padding:16px;background:var(--surface);border-radius:var(--radius);
+  font-size:15px;color:var(--text);min-height:60px;
+  border:2px solid var(--primary-light);
+}
+
+/* Scrollbar styling */
+.screen::-webkit-scrollbar{width:0;background:transparent}
+
+/* Accessibility */
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="phone-wrapper">
+  <div class="phone-frame" id="phoneFrame">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span class="time" id="statusTime">19:40</span>
+      <div class="icons">
+        <svg viewBox="0 0 24 24" aria-label="Airplane mode on"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0011.5 2 1.5 1.5 0 0010 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+        <svg viewBox="0 0 24 24" aria-label="Battery"><path d="M17 4h-3V2h-4v2H7v18h10V4zm-1 16H8V6h8v14z"/><rect x="9" y="8" width="6" height="10" opacity=".5"/></svg>
+      </div>
+    </div>
+
+    <!-- Notification Banner -->
+    <div class="notification-banner" id="notifBanner" role="alert" aria-label="Notification: 2 invoices overdue">
+      <div class="notif-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0011.5 2 1.5 1.5 0 0010 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+      </div>
+      <div class="notif-text">
+        <div class="notif-app">SoloPilot</div>
+        <div class="notif-msg" id="notifMsg">2 invoices overdue. Tap to review.</div>
+      </div>
+    </div>
+
+    <!-- Screen Container -->
+    <div class="screen-container">
+      <!-- ===== SCREEN: HOME ===== -->
+      <div class="screen active" id="screenHome">
+        <div style="padding:16px 16px 8px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:14px;color:var(--text-secondary)" id="greetingText">Good evening</div>
+              <h1 style="font-size:24px;font-weight:800;margin-top:2px">SoloPilot</h1>
+            </div>
+            <div class="badge-offline">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              On-device &bull; Works offline
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="card" style="margin-top:8px">
+          <div class="card-summary" id="cardDrafts" tabindex="0" role="button" aria-label="Drafts to approve">
+            <div class="card-icon" style="background:var(--accent-light)">📝</div>
+            <div>
+              <div class="card-value" id="draftCount">2</div>
+              <div class="card-label">drafts to approve</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-summary" id="cardOverdue" tabindex="0" role="button" aria-label="Invoices overdue">
+            <div class="card-icon" style="background:var(--overdue-bg)">⚠️</div>
+            <div>
+              <div class="card-value" id="overdueCount">2</div>
+              <div class="card-label">invoices overdue</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn btn-primary pulse-glow" id="btnScanHome" aria-label="Scan receipt or message">
+            <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5z"/></svg>
+            Scan
+          </button>
+          <button class="btn btn-secondary" id="btnNewInvoice" aria-label="Create new invoice manually">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            New invoice
+          </button>
+        </div>
+
+        <!-- Recent Invoices -->
+        <div class="section-title">Recent invoices</div>
+        <div id="recentInvoices" style="background:var(--surface);margin:0 0 8px;border-radius:0"></div>
+      </div>
+
+      <!-- ===== SCREEN: SCAN ===== -->
+      <div class="screen hidden" id="screenScan">
+        <div class="top-bar">
+          <button class="back-btn" id="scanBack" aria-label="Go back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+          <h1>Scan</h1>
+        </div>
+
+        <!-- Scan options - initial state -->
+        <div id="scanOptions">
+          <div style="padding:12px 16px;text-align:center">
+            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5">
+              Photograph a receipt, paste a client message, or dictate. Everything is read <strong>on your phone</strong>.
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-full pulse-glow" id="btnTakePhoto" aria-label="Take photo of receipt" style="margin-bottom:12px">
+            <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+            Take photo
+          </button>
+
+          <div class="input-group">
+            <label>Paste a client message</label>
+            <textarea id="pasteArea" rows="3" placeholder="e.g. &quot;Hi, approved the logo. Please send invoice for ₹5,000&quot;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-outline" id="btnUseSample" style="font-size:13px;padding:8px 14px">Use sample</button>
+              <button class="btn btn-primary" id="btnExtract" style="font-size:13px;padding:8px 14px;flex:1">Extract</button>
+            </div>
+          </div>
+
+          <div id="smartRepliesContainer" style="display:none">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);padding:4px 16px">Suggested replies</div>
+            <div class="smart-replies">
+              <div class="smart-reply-chip" data-reply="Thanks! I'll send the invoice right away.">Thanks! Sending invoice now</div>
+              <div class="smart-reply-chip" data-reply="Invoice sent. Payment due in 14 days.">Invoice sent ✓</div>
+              <div class="smart-reply-chip" data-reply="Got it! Will share the invoice by today.">Will share today</div>
+            </div>
+          </div>
+
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">— or —</div>
+            <button class="btn btn-secondary" id="btnMic" aria-label="Dictate invoice details">
+              <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+              Dictate
+            </button>
+          </div>
+        </div>
+
+        <!-- Scan animation area (hidden initially) -->
+        <div id="scanAnimation" style="display:none">
+          <div class="scan-area" id="scanArea">
+            <div class="receipt-mock" id="receiptMock">
+              <h3>INVOICE</h3>
+              <div class="receipt-line"><span>Client:</span><span id="receiptClient">Ravi Kumar</span></div>
+              <div class="receipt-line"><span>Service:</span><span>Logo design</span></div>
+              <div class="receipt-line"><span>Date:</span><span id="receiptDate"></span></div>
+              <div class="receipt-line receipt-total"><span>Total:</span><span id="receiptAmount">₹5,000</span></div>
+            </div>
+            <div class="scan-line" id="scanLine" style="display:none"></div>
+            <div class="highlight-box" id="hlBox1" style="right:16px;top:70px;width:100px;height:24px"></div>
+            <div class="highlight-box" id="hlBox2" style="right:16px;top:108px;width:90px;height:24px"></div>
+            <div class="highlight-box" id="hlBox3" style="right:16px;top:146px;width:60px;height:24px"></div>
+          </div>
+          <div class="scan-status" id="scanStatus">Preparing camera…</div>
+        </div>
+
+        <!-- Mic animation area -->
+        <div id="micAnimation" style="display:none">
+          <div style="text-align:center;padding:20px 16px">
+            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">Listening…</div>
+            <div class="waveform" id="waveform"></div>
+            <div class="mic-transcript" id="micTranscript"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SCREEN: REVIEW ===== -->
+      <div class="screen hidden" id="screenReview">
+        <div class="top-bar">
+          <button class="back-btn" id="reviewBack" aria-label="Go back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+          <h1>Review details</h1>
+        </div>
+
+        <div style="padding:8px 16px 4px">
+          <div style="font-size:14px;color:var(--text-secondary);line-height:1.5">
+            You're always in control — edit anything.
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top:12px">
+          <label for="reviewClient">Client name *</label>
+          <input type="text" id="reviewClient" value="Ravi Kumar" aria-required="true">
+          <div class="input-error" id="clientError">Client name is required</div>
+        </div>
+        <div class="input-group">
+          <label for="reviewAmount">Amount (₹) *</label>
+          <input type="number" id="reviewAmount" value="5000" min="1" aria-required="true">
+          <div class="input-error" id="amountError">Amount must be greater than 0</div>
+        </div>
+        <div class="input-group">
+          <label for="reviewIssuedDate">Issued date</label>
+          <input type="date" id="reviewIssuedDate">
+        </div>
+        <div class="input-group">
+          <label for="reviewDueDate">Due date</label>
+          <input type="date" id="reviewDueDate">
+        </div>
+
+        <div class="collapsible-header" id="recognisedToggle" tabindex="0" role="button" aria-expanded="false">
+          <span>Recognised text</span>
+          <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </div>
+        <div class="collapsible-body" id="recognisedBody">
+          <div style="font-size:13px;color:var(--text-secondary);padding-bottom:12px;font-family:monospace;white-space:pre-wrap" id="recognisedText">Client: Ravi Kumar
+Service: Logo design
+Total: ₹5,000</div>
+        </div>
+
+        <div style="height:16px"></div>
+        <button class="btn btn-primary btn-full" id="btnCreateInvoice" aria-label="Create invoice">Create invoice</button>
+        <div style="height:20px"></div>
+      </div>
+
+      <!-- ===== SCREEN: INVOICE ===== -->
+      <div class="screen hidden" id="screenInvoice">
+        <div class="top-bar">
+          <button class="back-btn" id="invoiceBack" aria-label="Go back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+          <h1>Invoice</h1>
+        </div>
+
+        <div class="invoice-card-detail">
+          <div class="invoice-card-header">
+            <div id="invoiceStatusChip"></div>
+            <h2 id="invoiceAmount">₹5,000</h2>
+            <div style="font-size:14px;color:var(--text-secondary)" id="invoiceClient">Ravi Kumar</div>
+          </div>
+          <div class="invoice-card-body">
+            <div class="invoice-card-row"><span class="label">Issued</span><span class="value" id="invoiceIssued">—</span></div>
+            <div class="invoice-card-row"><span class="label">Due</span><span class="value" id="invoiceDue">—</span></div>
+            <div class="invoice-card-row"><span class="label">Invoice #</span><span class="value" id="invoiceNum">—</span></div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-success" id="btnMarkPaid" aria-label="Mark as paid">
+            <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            Paid
+          </button>
+          <button class="btn btn-secondary" id="btnExportPDF" aria-label="Export PDF">
+            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            PDF
+          </button>
+        </div>
+        <div id="btnDraftReminderContainer" style="margin-top:10px;display:none">
+          <button class="btn btn-danger btn-full pulse-glow" id="btnDraftReminder" aria-label="Draft payment reminder">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M11 5h2v6h-2zm0 8h2v2h-2z"/></svg>
+            Draft reminder
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== SCREEN: INVOICES LIST ===== -->
+      <div class="screen hidden" id="screenInvoices">
+        <div class="top-bar">
+          <h1 style="padding-left:4px">Invoices</h1>
+        </div>
+        <div class="filter-bar" id="filterBar">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="pending">⏳ Pending</button>
+          <button class="filter-chip" data-filter="overdue">⚠ Overdue</button>
+          <button class="filter-chip" data-filter="paid">✓ Paid</button>
+        </div>
+        <div id="invoicesList"></div>
+      </div>
+
+      <!-- ===== SCREEN: REMINDER ===== -->
+      <div class="screen hidden" id="screenReminder">
+        <div class="top-bar">
+          <button class="back-btn" id="reminderBack" aria-label="Go back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+          <h1>Payment reminder</h1>
+        </div>
+
+        <div id="reminderShimmer" style="padding:16px">
+          <div style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;text-align:center">Writing on-device…</div>
+          <div class="shimmer" style="height:20px;margin-bottom:10px"></div>
+          <div class="shimmer" style="height:20px;margin-bottom:10px;width:85%"></div>
+          <div class="shimmer" style="height:20px;margin-bottom:10px;width:90%"></div>
+          <div class="shimmer" style="height:20px;width:60%"></div>
+        </div>
+
+        <div id="reminderContent" style="display:none">
+          <div style="padding:4px 16px">
+            <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-bottom:8px">
+              <svg style="width:14px;height:14px;fill:var(--text-muted)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              Written by on-device AI
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="reminderText">Message</label>
+            <textarea id="reminderText" rows="7" style="line-height:1.6"></textarea>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="btnEditReminder" aria-label="Edit reminder">
+              <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+              Edit
+            </button>
+            <button class="btn btn-primary" id="btnApproveReminder" aria-label="Approve reminder">
+              <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+              Approve
+            </button>
+          </div>
+          <div style="height:10px"></div>
+          <button class="btn btn-primary btn-full" id="btnSendReminder" aria-label="Send reminder (simulated)" style="display:none">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            Send (simulated)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+      <button class="nav-item active" data-nav="home" aria-label="Home">
+        <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-nav="scan" aria-label="Scan">
+        <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5z"/></svg>
+        <span>Scan</span>
+      </button>
+      <button class="nav-item" data-nav="invoices" aria-label="Invoices">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/><path d="M8 15h8v2H8zm0-4h8v2H8z"/></svg>
+        <span>Invoices</span>
+      </button>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-content" id="modalContent">
+        <div class="modal-handle"></div>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+
+    <!-- Snackbar -->
+    <div class="snackbar" id="snackbar"></div>
+
+    <!-- Tour Overlay -->
+    <div class="tour-overlay" id="tourOverlay">
+      <div class="tour-card" id="tourCard">
+        <h3 id="tourTitle"></h3>
+        <p id="tourText"></p>
+        <div class="tour-dots" id="tourDots"></div>
+        <button class="btn btn-primary" id="tourNext" style="width:100%">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="phone-frame-footer">
+    Clickable prototype — scan, AI and voice are simulated.<br>
+    <a id="btnResetDemo">Reset demo</a> &bull; <a id="btnStartTour">Start guided tour</a> &bull; Press <kbd>R</kbd> to reset
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SoloPilot — Clickable Prototype
+   Single-file, no dependencies, no fetch, no ES modules
+   ============================================================ */
+
+(function(){
+"use strict";
+
+/* ---- Date helpers ---- */
+var NOW = new Date();
+function daysAgo(n){ var d=new Date(NOW); d.setDate(d.getDate()-n); return d; }
+function daysFromNow(n){ var d=new Date(NOW); d.setDate(d.getDate()+n); return d; }
+function fmtDate(d){
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+}
+function fmtDateInput(d){
+  var mm=String(d.getMonth()+1).padStart(2,'0');
+  var dd=String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+mm+'-'+dd;
+}
+function parseDateInput(s){
+  var p=s.split('-'); return new Date(+p[0],+p[1]-1,+p[2]);
+}
+function fmtRupees(n){
+  var s=Math.abs(n).toString();
+  var last3=s.substring(s.length-3);
+  var rest=s.substring(0,s.length-3);
+  if(rest!=='') last3=','+last3;
+  var formatted=rest.replace(/\B(?=(\d{2})+(?!\d))/g,',')+last3;
+  return '₹'+formatted;
+}
+function daysBetween(a,b){return Math.round((b-a)/(1000*60*60*24));}
+
+/* ---- Greeting ---- */
+function getGreeting(){
+  var h=NOW.getHours();
+  if(h<12) return 'Good morning';
+  if(h<17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/* ---- Status time ---- */
+function updateStatusTime(){
+  var n=new Date();
+  document.getElementById('statusTime').textContent=
+    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+}
+
+/* ---- Invoice ID gen ---- */
+var invoiceCounter = 1000;
+function nextInvoiceId(){ return 'SP-'+(++invoiceCounter); }
+
+/* ---- Colors for avatars ---- */
+var avatarColors=['#0D9488','#4F46E5','#D97706','#DC2626','#7C3AED','#0284C7','#DB2777'];
+function avatarColor(name){
+  var sum=0; for(var i=0;i<name.length;i++) sum+=name.charCodeAt(i);
+  return avatarColors[sum%avatarColors.length];
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var invoices=[];
+var currentInvoiceIdx=-1;
+var screenStack=['home'];
+var notifShown=false;
+var firstRun=true;
+
+function initData(){
+  invoiceCounter=1000;
+  invoices=[
+    { id:nextInvoiceId(), client:'Ravi Kumar', amount:5000, issued:daysAgo(26), due:daysAgo(12), status:'overdue', hasDraft:true },
+    { id:nextInvoiceId(), client:'Meera Studios', amount:18500, issued:daysAgo(17), due:daysAgo(3), status:'overdue', hasDraft:true },
+    { id:nextInvoiceId(), client:'Anita Rao', amount:7200, issued:daysAgo(9), due:daysFromNow(5), status:'pending', hasDraft:false },
+    { id:nextInvoiceId(), client:'Karthik Photography', amount:12000, issued:daysAgo(30), due:daysAgo(20), status:'paid', hasDraft:false }
+  ];
+  currentInvoiceIdx=-1;
+  screenStack=['home'];
+  notifShown=false;
+  firstRun=true;
+}
+initData();
+
+/* ---- Derived counts ---- */
+function countByStatus(s){ return invoices.filter(function(i){return i.status===s}).length; }
+function countDrafts(){ return invoices.filter(function(i){return i.hasDraft && i.status==='overdue'}).length; }
+
+/* ============================================================
+   DOM REFS
+   ============================================================ */
+var $=function(id){return document.getElementById(id)};
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+var screens={
+  home:$('screenHome'), scan:$('screenScan'), review:$('screenReview'),
+  invoice:$('screenInvoice'), invoices:$('screenInvoices'), reminder:$('screenReminder')
+};
+var navItems=document.querySelectorAll('.nav-item');
+
+function navigateTo(name, direction, filter){
+  var prev=screenStack[screenStack.length-1];
+  if(prev===name && name!=='invoices') return;
+
+  var dir=direction||'right';
+  var prevScreen=screens[prev];
+  var nextScreen=screens[name];
+
+  // Show next screen
+  nextScreen.classList.remove('hidden');
+  nextScreen.classList.remove('active','slide-out-left','slide-in-right','slide-out-right','slide-in-left');
+
+  if(dir==='right'){
+    nextScreen.classList.add('slide-in-right');
+    prevScreen.classList.add('slide-out-left');
+  } else {
+    nextScreen.classList.add('slide-in-left');
+    prevScreen.classList.add('slide-out-right');
+  }
+
+  // Force reflow
+  void nextScreen.offsetWidth;
+
+  nextScreen.classList.remove('slide-in-right','slide-in-left');
+  nextScreen.classList.add('active');
+
+  setTimeout(function(){
+    prevScreen.classList.remove('active','slide-out-left','slide-out-right');
+    prevScreen.classList.add('hidden');
+    prevScreen.scrollTop=0;
+  },250);
+
+  // Update nav highlight
+  var navMap={home:'home',scan:'scan',review:'scan',invoice:'invoices',invoices:'invoices',reminder:'invoices'};
+  var navTarget=navMap[name]||'home';
+  navItems.forEach(function(ni){
+    ni.classList.toggle('active', ni.dataset.nav===navTarget);
+  });
+
+  // Update stack
+  if(direction==='left'){
+    screenStack.pop();
+  } else {
+    screenStack.push(name);
+  }
+
+  // Screen-specific init
+  if(name==='home') renderHome();
+  if(name==='invoices') renderInvoicesList(filter||'all');
+  if(name==='scan') resetScan();
+
+  // Scroll to top
+  nextScreen.scrollTop=0;
+}
+
+function goBack(){
+  if(screenStack.length<=1) return;
+  var prev=screenStack[screenStack.length-2];
+  navigateTo(prev,'left');
+}
+
+/* ---- Nav bar clicks ---- */
+navItems.forEach(function(ni){
+  ni.addEventListener('click',function(){
+    var target=ni.dataset.nav;
+    var current=screenStack[screenStack.length-1];
+    if(target===current) return;
+    // Reset stack to base when using nav bar
+    screenStack=['home'];
+    if(target==='home'){
+      navigateTo('home','left');
+    } else {
+      navigateTo(target,'right');
+    }
+  });
+});
+
+/* ============================================================
+   RENDER HOME
+   ============================================================ */
+function renderHome(){
+  $('greetingText').textContent=getGreeting();
+  $('draftCount').textContent=countDrafts();
+  $('overdueCount').textContent=countByStatus('overdue');
+  updateStatusTime();
+
+  // Update notification message
+  var oc=countByStatus('overdue');
+  $('notifMsg').textContent=oc+' invoice'+(oc!==1?'s':'')+' overdue. Tap to review.';
+
+  // Recent invoices
+  var list=$('recentInvoices');
+  list.innerHTML='';
+  invoices.forEach(function(inv,idx){
+    list.appendChild(createInvoiceItem(inv,idx));
+  });
+
+  // Notification after 2s on first load
+  if(!notifShown && countByStatus('overdue')>0){
+    notifShown=true;
+    setTimeout(function(){
+      if(screenStack[screenStack.length-1]==='home'){
+        $('notifBanner').classList.add('show');
+        setTimeout(function(){ $('notifBanner').classList.remove('show'); },5000);
+      }
+    },2000);
+  }
+
+  // Pulse on scan button for first run
+  if(firstRun){
+    $('btnScanHome').classList.add('pulse-glow');
+  } else {
+    $('btnScanHome').classList.remove('pulse-glow');
+  }
+}
+
+function createInvoiceItem(inv,idx){
+  var el=document.createElement('div');
+  el.className='invoice-item';
+  el.setAttribute('role','button');
+  el.setAttribute('tabindex','0');
+  el.setAttribute('aria-label','Invoice for '+inv.client+' '+fmtRupees(inv.amount));
+
+  var initials=inv.client.split(' ').map(function(w){return w[0]}).join('').substring(0,2);
+  var statusClass=inv.status;
+  var statusIcon=inv.status==='paid'?'✓':inv.status==='overdue'?'⚠':'⏳';
+
+  el.innerHTML=
+    '<div class="inv-avatar" style="background:'+avatarColor(inv.client)+'">'+initials+'</div>'+
+    '<div class="inv-info">'+
+      '<div class="inv-name">'+inv.client+'</div>'+
+      '<div class="inv-date">Due '+fmtDate(inv.due)+'</div>'+
+    '</div>'+
+    '<div class="inv-right">'+
+      '<div class="inv-amount">'+fmtRupees(inv.amount)+'</div>'+
+      '<div class="status-chip '+statusClass+'"><span class="chip-icon">'+statusIcon+'</span> '+
+        inv.status.charAt(0).toUpperCase()+inv.status.slice(1)+
+      '</div>'+
+    '</div>';
+
+  el.addEventListener('click',function(){ openInvoice(idx); });
+  return el;
+}
+
+/* ============================================================
+   INVOICES LIST
+   ============================================================ */
+function renderInvoicesList(filter){
+  // Update filter chips
+  document.querySelectorAll('#filterBar .filter-chip').forEach(function(c){
+    c.classList.toggle('active',c.dataset.filter===filter);
+  });
+
+  var list=$('invoicesList');
+  list.innerHTML='';
+
+  var filtered=invoices.filter(function(inv){
+    if(filter==='all') return true;
+    return inv.status===filter;
+  });
+
+  if(filtered.length===0){
+    list.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg><p>No invoices here yet</p></div>';
+    return;
+  }
+
+  filtered.forEach(function(inv){
+    var realIdx=invoices.indexOf(inv);
+    list.appendChild(createInvoiceItem(inv,realIdx));
+  });
+}
+
+/* Filter chip clicks */
+$('filterBar').addEventListener('click',function(e){
+  var chip=e.target.closest('.filter-chip');
+  if(!chip) return;
+  renderInvoicesList(chip.dataset.filter);
+});
+
+/* ============================================================
+   OPEN INVOICE
+   ============================================================ */
+function openInvoice(idx){
+  currentInvoiceIdx=idx;
+  var inv=invoices[idx];
+
+  $('invoiceAmount').textContent=fmtRupees(inv.amount);
+  $('invoiceClient').textContent=inv.client;
+  $('invoiceIssued').textContent=fmtDate(inv.issued);
+  $('invoiceDue').textContent=fmtDate(inv.due);
+  $('invoiceNum').textContent=inv.id;
+
+  var statusIcon=inv.status==='paid'?'✓':inv.status==='overdue'?'⚠':'⏳';
+  $('invoiceStatusChip').innerHTML='<div class="status-chip '+inv.status+'" style="font-size:13px;padding:6px 14px"><span class="chip-icon">'+statusIcon+'</span> '+inv.status.charAt(0).toUpperCase()+inv.status.slice(1)+'</div>';
+
+  // Show/hide buttons
+  $('btnMarkPaid').style.display=(inv.status!=='paid')?'inline-flex':'none';
+  $('btnDraftReminderContainer').style.display=(inv.status==='overdue')?'block':'none';
+
+  if(inv.status==='overdue'){
+    $('btnDraftReminder').classList.add('pulse-glow');
+  } else {
+    $('btnDraftReminder').classList.remove('pulse-glow');
+  }
+
+  navigateTo('invoice');
+}
+
+/* ============================================================
+   SCAN FLOW
+   ============================================================ */
+function resetScan(){
+  $('scanOptions').style.display='block';
+  $('scanAnimation').style.display='none';
+  $('micAnimation').style.display='none';
+  $('pasteArea').value='';
+  $('smartRepliesContainer').style.display='none';
+  $('scanLine').style.display='none';
+  document.querySelectorAll('.highlight-box').forEach(function(b){b.classList.remove('show')});
+}
+
+/* Take Photo flow */
+$('btnTakePhoto').addEventListener('click',function(){
+  firstRun=false;
+  $('scanOptions').style.display='none';
+  $('scanAnimation').style.display='block';
+
+  // Set receipt date
+  $('receiptDate').textContent=fmtDate(daysAgo(12));
+
+  $('scanStatus').textContent='Capturing…';
+  $('scanLine').style.display='none';
+  document.querySelectorAll('.highlight-box').forEach(function(b){b.classList.remove('show')});
+
+  setTimeout(function(){
+    $('scanLine').style.display='block';
+    $('scanStatus').textContent='Reading on-device…';
+  },500);
+
+  setTimeout(function(){
+    $('scanLine').style.display='none';
+    $('hlBox1').classList.add('show');
+    $('hlBox2').classList.add('show');
+    $('hlBox3').classList.add('show');
+    $('scanStatus').textContent='✓ Found 3 fields';
+  },2500);
+
+  setTimeout(function(){
+    prepareReview('Ravi Kumar',5000,
+      'Client: Ravi Kumar\nService: Logo design\nTotal: ₹5,000\nDate: '+fmtDate(daysAgo(12)));
+    navigateTo('review');
+  },3500);
+});
+
+/* Paste flow */
+var sampleMessage='Hi Ravi here. The logo design work is approved! Please share the invoice for ₹5,000. Thanks!';
+
+$('btnUseSample').addEventListener('click',function(){
+  $('pasteArea').value=sampleMessage;
+  $('smartRepliesContainer').style.display='block';
+});
+
+$('btnExtract').addEventListener('click',function(){
+  var text=$('pasteArea').value.trim();
+  if(!text){ showSnackbar('Paste or type a message first'); return; }
+  firstRun=false;
+  // Simulate extraction
+  prepareReview('Ravi Kumar',5000, text);
+  navigateTo('review');
+});
+
+/* Smart reply chips */
+document.querySelectorAll('.smart-reply-chip').forEach(function(chip){
+  chip.addEventListener('click',function(){
+    showSnackbar('Reply copied: "'+chip.dataset.reply+'"');
+  });
+});
+
+/* Mic flow */
+$('btnMic').addEventListener('click',function(){
+  firstRun=false;
+  $('scanOptions').style.display='none';
+  $('micAnimation').style.display='block';
+
+  // Create waveform bars
+  var wf=$('waveform');
+  wf.innerHTML='';
+  for(var i=0;i<20;i++){
+    var bar=document.createElement('div');
+    bar.className='bar';
+    bar.style.animationDelay=(i*0.05)+'s';
+    wf.appendChild(bar);
+  }
+
+  // Typing transcript
+  var transcript='Invoice Ravi, five thousand rupees, due Friday';
+  var ti=0;
+  $('micTranscript').innerHTML='';
+  var cursor=document.createElement('span');
+  cursor.className='typing-cursor';
+
+  var typeInterval=setInterval(function(){
+    if(ti<transcript.length){
+      $('micTranscript').textContent=transcript.substring(0,ti+1);
+      $('micTranscript').appendChild(cursor);
+      ti++;
+    } else {
+      clearInterval(typeInterval);
+      setTimeout(function(){
+        prepareReview('Ravi Kumar',5000, transcript);
+        navigateTo('review');
+      },800);
+    }
+  },50);
+});
+
+/* ============================================================
+   REVIEW
+   ============================================================ */
+function prepareReview(client,amount,rawText){
+  $('reviewClient').value=client;
+  $('reviewAmount').value=amount;
+  $('reviewIssuedDate').value=fmtDateInput(NOW);
+  // For Ravi demo: due date should make it overdue (12 days ago)
+  if(client==='Ravi Kumar'){
+    $('reviewDueDate').value=fmtDateInput(daysAgo(12));
+  } else {
+    $('reviewDueDate').value=fmtDateInput(daysFromNow(14));
+  }
+  $('recognisedText').textContent=rawText;
+  // Hide errors
+  $('clientError').style.display='none';
+  $('amountError').style.display='none';
+}
+
+$('btnCreateInvoice').addEventListener('click',function(){
+  var client=$('reviewClient').value.trim();
+  var amount=parseFloat($('reviewAmount').value);
+  var valid=true;
+
+  if(!client){ $('clientError').style.display='block'; valid=false; }
+  else { $('clientError').style.display='none'; }
+  if(!amount || amount<=0){ $('amountError').style.display='block'; valid=false; }
+  else { $('amountError').style.display='none'; }
+
+  if(!valid) return;
+
+  var issued=parseDateInput($('reviewIssuedDate').value);
+  var due=parseDateInput($('reviewDueDate').value);
+
+  // Determine status
+  var daysUntilDue=daysBetween(NOW,due);
+  var status=daysUntilDue<0?'overdue':'pending';
+
+  var newInv={
+    id:nextInvoiceId(), client:client, amount:amount,
+    issued:issued, due:due, status:status,
+    hasDraft:status==='overdue'
+  };
+  invoices.unshift(newInv);
+  currentInvoiceIdx=0;
+
+  showSnackbar('Invoice created for '+fmtRupees(amount));
+  openInvoice(0);
+});
+
+/* Collapsible */
+$('recognisedToggle').addEventListener('click',function(){
+  var isOpen=$('recognisedBody').classList.toggle('open');
+  $('recognisedToggle').classList.toggle('open',isOpen);
+  $('recognisedToggle').setAttribute('aria-expanded',isOpen?'true':'false');
+});
+
+/* ============================================================
+   INVOICE ACTIONS
+   ============================================================ */
+$('btnMarkPaid').addEventListener('click',function(){
+  if(currentInvoiceIdx<0) return;
+  invoices[currentInvoiceIdx].status='paid';
+  invoices[currentInvoiceIdx].hasDraft=false;
+  showSnackbar('Marked as paid ✓');
+  // Update view in place (don't re-navigate)
+  $('invoiceStatusChip').innerHTML='<div class="status-chip paid" style="font-size:13px;padding:6px 14px"><span class="chip-icon">✓</span> Paid</div>';
+  $('btnMarkPaid').style.display='none';
+  $('btnDraftReminderContainer').style.display='none';
+});
+
+$('btnExportPDF').addEventListener('click',function(){
+  if(currentInvoiceIdx<0) return;
+  var inv=invoices[currentInvoiceIdx];
+  var html=
+    '<h2 style="text-align:center;font-size:18px;margin-bottom:4px">INVOICE</h2>'+
+    '<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:16px">'+inv.id+'</div>'+
+    '<div class="pdf-preview">'+
+      '<div class="pdf-row"><span>Client</span><span style="font-weight:600">'+inv.client+'</span></div>'+
+      '<div class="pdf-row"><span>Issued</span><span>'+fmtDate(inv.issued)+'</span></div>'+
+      '<div class="pdf-row"><span>Due</span><span>'+fmtDate(inv.due)+'</span></div>'+
+      '<div class="pdf-row"><span>Status</span><span>'+inv.status.charAt(0).toUpperCase()+inv.status.slice(1)+'</span></div>'+
+      '<div class="pdf-total">Total: '+fmtRupees(inv.amount)+'</div>'+
+      '<div class="pdf-footer">Generated on-device by SoloPilot</div>'+
+    '</div>'+
+    '<div style="height:16px"></div>'+
+    '<button class="btn btn-secondary" style="width:100%" onclick="document.getElementById(\'modalOverlay\').classList.remove(\'show\')">Close preview</button>';
+  showModal(html);
+});
+
+$('btnDraftReminder').addEventListener('click',function(){
+  if(currentInvoiceIdx<0) return;
+  openReminder(currentInvoiceIdx);
+});
+
+/* ============================================================
+   REMINDER
+   ============================================================ */
+function openReminder(idx){
+  currentInvoiceIdx=idx;
+  var inv=invoices[idx];
+
+  $('reminderShimmer').style.display='block';
+  $('reminderContent').style.display='none';
+  $('btnSendReminder').style.display='none';
+
+  navigateTo('reminder');
+
+  // Shimmer for 1.5s
+  setTimeout(function(){
+    $('reminderShimmer').style.display='none';
+    $('reminderContent').style.display='block';
+
+    var daysOver=daysBetween(inv.due,NOW);
+    var reminderMsg=generateReminder(inv.client,inv.amount,inv.due,daysOver);
+
+    // Typing animation
+    var textarea=$('reminderText');
+    textarea.value='';
+    textarea.readOnly=true;
+    var ti=0;
+    var typeSpeed=12;
+    var typeInterval=setInterval(function(){
+      if(ti<reminderMsg.length){
+        textarea.value=reminderMsg.substring(0,ti+1);
+        ti++;
+      } else {
+        clearInterval(typeInterval);
+        textarea.readOnly=false;
+      }
+    },typeSpeed);
+  },1500);
+}
+
+function generateReminder(client,amount,dueDate,daysOver){
+  var firstName=client.split(' ')[0];
+  var amt=fmtRupees(amount);
+  var dateStr=fmtDate(dueDate);
+
+  if(daysOver<=7){
+    return 'Hi '+firstName+',\n\nHope you\'re doing well! Just a gentle reminder that the invoice for '+amt+' was due on '+dateStr+'. I understand things can get busy — whenever you get a chance, could you please process the payment? Happy to resend the invoice if needed.\n\nThank you!\nWarm regards';
+  } else if(daysOver<=30){
+    return 'Hi '+firstName+',\n\nI wanted to follow up on the outstanding invoice of '+amt+' that was due on '+dateStr+' — it\'s now '+daysOver+' days past the due date. I\'d really appreciate it if you could arrange the payment at your earliest convenience. Please let me know if there are any issues or if you\'d like me to resend the invoice.\n\nThank you for your attention to this.\nBest regards';
+  } else {
+    return 'Dear '+firstName+',\n\nThis is a final reminder regarding the overdue invoice of '+amt+', originally due on '+dateStr+' — now '+daysOver+' days overdue. I kindly request immediate payment to settle this account. If there is a concern or dispute, please contact me as soon as possible so we can resolve it together.\n\nThank you for your prompt attention.\nRegards';
+  }
+}
+
+$('btnEditReminder').addEventListener('click',function(){
+  $('reminderText').readOnly=false;
+  $('reminderText').focus();
+  showSnackbar('You can now edit the message');
+});
+
+$('btnApproveReminder').addEventListener('click',function(){
+  $('reminderText').readOnly=true;
+  $('btnSendReminder').style.display='flex';
+  $('btnApproveReminder').style.display='none';
+  $('btnEditReminder').style.display='none';
+  $('btnSendReminder').classList.add('pulse-glow');
+  showSnackbar('Reminder approved ✓');
+});
+
+$('btnSendReminder').addEventListener('click',function(){
+  if(currentInvoiceIdx>=0){
+    invoices[currentInvoiceIdx].hasDraft=false;
+  }
+  showSnackbar('Reminder sent — simulated, nothing left your phone');
+
+  // Reset approve/edit buttons for next use
+  $('btnApproveReminder').style.display='inline-flex';
+  $('btnEditReminder').style.display='inline-flex';
+  $('btnSendReminder').style.display='none';
+
+  setTimeout(function(){
+    // Go back to home
+    screenStack=['home'];
+    navigateTo('home','left');
+  },1200);
+});
+
+/* ============================================================
+   HOME CARD CLICKS
+   ============================================================ */
+$('cardOverdue').addEventListener('click',function(){
+  navigateTo('invoices','right','overdue');
+  renderInvoicesList('overdue');
+});
+
+$('cardDrafts').addEventListener('click',function(){
+  // Show overdue invoices that have drafts
+  navigateTo('invoices','right','overdue');
+  renderInvoicesList('overdue');
+});
+
+$('btnScanHome').addEventListener('click',function(){ navigateTo('scan'); });
+$('btnNewInvoice').addEventListener('click',function(){
+  prepareReview('','',
+    '');
+  $('reviewClient').value='';
+  $('reviewAmount').value='';
+  $('reviewIssuedDate').value=fmtDateInput(NOW);
+  $('reviewDueDate').value=fmtDateInput(daysFromNow(14));
+  navigateTo('review');
+});
+
+/* ============================================================
+   NOTIFICATION BANNER
+   ============================================================ */
+$('notifBanner').addEventListener('click',function(){
+  $('notifBanner').classList.remove('show');
+  navigateTo('invoices','right','overdue');
+  renderInvoicesList('overdue');
+});
+
+/* ============================================================
+   BACK BUTTONS
+   ============================================================ */
+$('scanBack').addEventListener('click', goBack);
+$('reviewBack').addEventListener('click', goBack);
+$('invoiceBack').addEventListener('click', goBack);
+$('reminderBack').addEventListener('click', function(){
+  // Reset approve/edit buttons
+  $('btnApproveReminder').style.display='inline-flex';
+  $('btnEditReminder').style.display='inline-flex';
+  $('btnSendReminder').style.display='none';
+  goBack();
+});
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function showModal(html){
+  $('modalBody').innerHTML=html;
+  $('modalOverlay').classList.add('show');
+}
+
+$('modalOverlay').addEventListener('click',function(e){
+  if(e.target===$('modalOverlay')){
+    $('modalOverlay').classList.remove('show');
+  }
+});
+
+/* ============================================================
+   SNACKBAR
+   ============================================================ */
+var snackTimer;
+function showSnackbar(msg){
+  clearTimeout(snackTimer);
+  $('snackbar').textContent=msg;
+  $('snackbar').classList.add('show');
+  snackTimer=setTimeout(function(){ $('snackbar').classList.remove('show'); },3000);
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+function resetDemo(){
+  initData();
+  // Reset all screens
+  Object.keys(screens).forEach(function(k){
+    screens[k].classList.remove('active','slide-out-left','slide-in-right','slide-out-right','slide-in-left');
+    screens[k].classList.add('hidden');
+  });
+  screens.home.classList.remove('hidden');
+  screens.home.classList.add('active');
+
+  // Reset nav
+  navItems.forEach(function(ni){
+    ni.classList.toggle('active', ni.dataset.nav==='home');
+  });
+
+  // Reset approve/edit buttons on reminder screen
+  $('btnApproveReminder').style.display='inline-flex';
+  $('btnEditReminder').style.display='inline-flex';
+  $('btnSendReminder').style.display='none';
+
+  renderHome();
+  showSnackbar('Demo reset ✓');
+}
+
+$('btnResetDemo').addEventListener('click',resetDemo);
+document.addEventListener('keydown',function(e){
+  if(e.key==='r'||e.key==='R'){
+    // Don't trigger when typing in inputs
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    resetDemo();
+  }
+});
+
+/* ============================================================
+   GUIDED TOUR
+   ============================================================ */
+var tourSteps=[
+  {title:'Welcome to SoloPilot', text:'This is your private AI back-office. Everything runs on your phone, even in airplane mode. Let\'s walk through the main flow.'},
+  {title:'Step 1: Scan', text:'Tap the Scan button to photograph a receipt, paste a client message, or dictate. The app reads everything on-device.'},
+  {title:'Step 2: Review', text:'Check the extracted details — client name, amount, dates. Edit anything. You\'re always in control.'},
+  {title:'Step 3: Invoice', text:'Your invoice is created instantly. Mark it paid, export a PDF, or draft a reminder for overdue payments.'},
+  {title:'Step 4: Reminder', text:'SoloPilot drafts a polite, human reminder using on-device AI. Review it, approve, and send — nothing leaves your phone.'},
+  {title:'That\'s it!', text:'Try the hero flow now: Home → Scan → Review → Invoice → Reminder → Send → Home. Watch the counts update live!'}
+];
+var tourIdx=0;
+
+function showTourStep(){
+  $('tourTitle').textContent=tourSteps[tourIdx].title;
+  $('tourText').textContent=tourSteps[tourIdx].text;
+
+  var dots=$('tourDots');
+  dots.innerHTML='';
+  tourSteps.forEach(function(_,i){
+    var d=document.createElement('div');
+    d.className='tour-dot'+(i===tourIdx?' active':'');
+    dots.appendChild(d);
+  });
+
+  $('tourNext').textContent=tourIdx===tourSteps.length-1?'Start exploring':'Next';
+}
+
+$('btnStartTour').addEventListener('click',function(){
+  tourIdx=0;
+  showTourStep();
+  $('tourOverlay').classList.add('show');
+});
+
+$('tourNext').addEventListener('click',function(){
+  tourIdx++;
+  if(tourIdx>=tourSteps.length){
+    $('tourOverlay').classList.remove('show');
+    tourIdx=0;
+    return;
+  }
+  showTourStep();
+});
+
+$('tourOverlay').addEventListener('click',function(e){
+  if(e.target===$('tourOverlay')){
+    $('tourOverlay').classList.remove('show');
+  }
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderHome();
+updateStatusTime();
+setInterval(updateStatusTime,30000);
+
+})();
+</script>
+</body>
+</html>
